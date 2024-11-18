@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メタボリックシンドローム予防アプリ</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+    <style>
+       /* 全体の基本スタイル設定 */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+         /* 地図のスタイル設定 */
+        #map {
+            height: 60vh; /* ビューポートの60%の高さ */
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        /* フォームコンテナのスタイル */
+        #form-container {
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin: 20px;
+            max-width: 600px;
+            margin: auto;
+        }
+         /* 見出しのスタイル */
+        h2, h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        /* フォームラベルのスタイル */
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+        /* 入力欄のスタイル */
+        input[type="date"], input[type="number"] {
+            width: calc(100% - 20px);
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        /* ボタンのスタイル */
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
+            transition: background-color 0.3s ease;
+        }
+         /* ボタンのホバースタイル */
+        button:hover {
+            background-color: #218838;
+        }
+        /* 記録された身体情報や目標歩数表示のスタイル */
+        #display-goals, #display-weight, #display-waist {
+            font-size: 1.2rem;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        /* 歩数表示エリアのスタイル */
+        #steps {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: #ff6b6b;
+            color: white;
+            font-size: 2rem;
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 1000;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+        /* センサー有効化メッセージのスタイル */
+        #msg {
+            font-size: 1.2rem;
+            margin: 20px;
+            cursor: pointer;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+        /* 過去データ復元のためのエリアスタイル */
+        #resume-container {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        /* ボタンの色を青色に変更 */
+        #resume-container button {
+            background-color: #007bff;
+        }
+        #resume-container button:hover {
+            background-color: #0056b3;
+        }
+        /* モバイルデバイス向けのレスポンシブデザイン */
+        @media (max-width: 600px) {
+            #form-container {
+                margin: 10px;
+                padding: 15px;
+            }
+            #map {
+                height: 50vh;
+            }
+        }
+        #message {
+    position: fixed;
+    top: 50%; /* 画面の中央に */
+    left: 50%;
+    transform: translate(-50%, -50%); /* 中央揃え */
+    background-color: #f8d7da;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    font-size: 24px; /* フォントサイズを大きくする */
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+    z-index: 1000; /* 他の要素の上に表示 */
+    width: 80%; /* 幅を設定して見やすく */
+    max-width: 500px; /* 最大幅を設定 */
+    text-align: center; /* テキストを中央揃え */
+}
+
+#closeButton {
+    position: absolute;
+    top: 10px; /* 上からの距離 */
+    right: 10px; /* 右からの距離 */
+    background: none; /* 背景をなしに */
+    border: none; /* 枠線をなしに */
+    font-size: 24px; /* ボタンのサイズを大きく */
+    cursor: pointer; /* カーソルをポインターに */
+    color: #721c24; /* ボタンの色をメッセージと統一 */
+}
+
+
+.exercise-history {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            max-height: 200px;  /* 高さを制限 */
+            overflow-y: auto;   /* スクロールを可能に */
+        }
+
+        .exercise-history div {
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .exercise-history div:last-child {
+            border-bottom: none;  /* 最後の要素の下にボーダーを追加しない */
+        }
+
+        /* 既存のスタイルの後に追加 */
+.exercise-section {
+    margin: 20px 0;
+}
+
+.exercise-section h2, .exercise-section h3 {
+    margin: 10px 0;
+}
+
+.exercise-section form {
+    display: flex;
+    flex-direction: column;
+}
+
+.exercise-section label {
+    margin: 5px 0;
+}
+
+.exercise-section input {
+    margin-bottom: 10px;
+}
+
+    </style>
+    
+</head>
+<body>
+    <!-- 地図の表示エリア -->
+    <div id="map"></div>
+    <!-- 身体情報の記録フォームエリア -->
+    <div id="form-container">
+        <h2>身体情報の記録</h2>
+        <form id="body-info-form">
+            <!-- 記録日入力欄 -->
+            <label for="date">記録日:</label>
+            <input type="date" id="date" name="date" required>
+
+            <!-- 体重入力欄 -->
+            <label for="weight">体重 (kg):</label>
+            <input type="number" id="weight" name="weight" step="0.1" required>
+
+            <!-- 腹囲入力欄 -->
+            <label for="waist">腹囲 (cm):</label>
+            <input type="number" id="waist" name="waist" step="0.1" required>
+            <!-- 記録ボタン -->
+            <button type="submit">記録</button>
+        </form>
+
+        <!-- 例: 既存のセクションの下に追加 -->
+<div class="exercise-section">
+    <h2>運動記録</h2>
+    <form id="exercise-form">
+        <label for="squats">スクワットの回数:</label>
+        <input type="number" id="squats" name="squats" min="0" value="0">
+        
+        <label for="lunges">ランジの回数:</label>
+        <input type="number" id="lunges" name="lunges" min="0" value="0">
+        
+        <button type="button" onclick="recordExercise()">運動を記録</button>
+    </form>
+
+    <div id="exercise-history" class="exercise-history"></div>  <!-- ここに運動履歴が表示される -->
+        
+    <h3>運動履歴</h3>
+    <div id="exercise-history"></div>
+</div>
+<label for="reminderSteps">リマインダーの歩数 (目標): </label>
+<input type="number" id="reminderSteps" min="1" value="50">
+<button id="setReminder">リマインダーを設定</button>
+
+
+<div id="message" style="display:none;">
+    スクワットとランジ！
+    <button id="stopReminder">×</button>
+</div>
+
+        <!-- 記録されたデータの表示エリア -->
+        <h2>記録された身体情報</h2>
+        <p id="display-weight">体重: - kg</p>
+        <p id="display-waist">腹囲: - cm</p>
+
+        <!-- 目標歩数の表示エリア -->
+        <h2>今日の目標歩数</h2>
+        <p id="display-goals">目標歩数: -</p>
+        
+        <!-- 過去データを表示するエリア -->
+        <h3>過去の記録を表示</h3>
+        <label for="select-date">表示したい日付を選択:</label>
+        <input type="date" id="select-date">
+        <button id="load-data">記録を表示</button>
+        
+        <!-- 過去の追跡データを再開するボタンを表示するエリア -->
+        <div id="resume-container" style="display: none;">
+            <button id="resume-tracking">現在進行中に戻す</button>
+        </div>
+    </div>
+
+    <!-- センサー有効化メッセージと歩数表示エリア -->
+    <div id="msg">ここをクリックしてセンサーを有効にする</div>
+    <div id="steps">歩数: 0</div>
+   
+    <!-- LeafletとLeaflet DrawのJavaScriptライブラリを読み込む -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+
+    <script>
+        // ユーザーの体重と腹囲に基づいて、今日の目標歩数を計算する関数
+        function generateDailyGoals(weight, waist) {
+            let goals = { steps: 8000 }; // 基本目標は8,000歩
+
+            // 体重による目標の調整
+            if (weight >= 80) {
+                goals.steps += 2000;
+            } else if (weight >= 70) {
+                goals.steps += 1000;
+            }
+            // 腹囲による目標の調整
+            if (waist >= 90) {
+                goals.steps += 1500;
+            } else if (waist >= 85) {
+                goals.steps += 750;
+            }
+
+            return goals;
+        }
+
+        // Leafletマップの初期化
+        const map = L.map('map').setView([35.681236, 139.767125], 13);
+        // OpenStreetMapタイルを地図に追加
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        let userPath = []; // ユーザーの移動履歴を保存する配列
+        const pathLine = L.polyline(userPath, { color: 'red' }).addTo(map); // 移動軌跡のポリラインを作成
+        let userMarker = L.marker([35.681236, 139.767125]).addTo(map);
+
+        /* 位置情報のトラッキング開始 */
+        function startLocationTracking() {
+    map.on('locationfound', onLocationFound); // 位置情報が取得できたときのイベントハンドラを設定
+    map.on('locationerror', onLocationError); // 位置情報の取得に失敗したときのイベントハンドラを設定
+    map.locate({
+        watch: true, // 継続的に位置情報を監視
+        setView: false, // 位置情報取得時に地図のビューを自動的に変更しない
+        maxZoom: 16, // 最大ズームレベルを設定
+        enableHighAccuracy: true, // 高精度の位置情報を取得する
+        timeout: 15000 // 位置情報取得のタイムアウト時間（ミリ秒）
+    });
+}
+
+        
+        /* 位置情報のトラッキング停止 */
+        function stopLocationTracking() {
+    // 'locationfound'イベントリスナーを解除
+    map.off('locationfound', onLocationFound);
+    // 'locationerror'イベントリスナーを解除
+    map.off('locationerror', onLocationError);
+    map.stopLocate(); // 位置情報の追跡を停止
+}
+        
+        /* 位置情報が取得された際の処理 */
+        function onLocationFound(e) {
+            const latlng = e.latlng;     // 取得した緯度経度
+            const accuracy = e.accuracy; // 精度（メートル単位）
+
+            // 位置情報の精度が悪い場合のアラート
+            if (accuracy > 50) {
+                console.warn(`位置情報の精度が低いです: ${accuracy} メートル`);
+            }
+
+            // 位置情報を更新
+            userPath.push(latlng);
+            const today = new Date().toISOString().split('T')[0];  // 今日の日付を取得して保存
+            savePath(today, userPath);
+            pathLine.setLatLngs(userPath); // パスラインの位置情報を更新
+            userMarker.setLatLng(latlng);  // ユーザーマーカーの位置を更新
+
+            // 地図のビューを更新
+            if (!map.getBounds().contains(latlng)) {
+                map.setView(latlng, map.getZoom());
+            }
+        }
+        // 位置情報取得失敗時の処理
+        function onLocationError(e) {
+            alert("現在地を取得できませんでした。");
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            startLocationTracking(); // 位置追跡を開始する関数を呼び出す
+
+            const today = new Date().toISOString().split('T')[0];  // 今日の日付を "YYYY-MM-DD" の形式で取得する
+            const savedWeight = localStorage.getItem(`${today}_weight`); // 今日の日付に基づく体重データをローカルストレージから取得する
+            const savedWaist = localStorage.getItem(`${today}_waist`); // 今日の日付に基づくウエストデータをローカルストレージから取得する
+            const savedPath = loadPath(today); // 今日の日付に基づく保存されたパスをロードする
+
+           // 保存されているデータがあれば表示
+if (savedWeight && savedWaist) {
+    document.getElementById('display-weight').textContent = `体重: ${savedWeight} kg`; // 保存された体重を表示
+    document.getElementById('display-waist').textContent = `腹囲: ${savedWaist} cm`; // 保存された腹囲を表示
+}
+
+if (savedPath.length > 0) {
+    pathLine.setLatLngs(savedPath); // 保存されたルートを地図に描画
+    map.fitBounds(pathLine.getBounds()); // 地図の表示範囲をルートに合わせる
+}
+});
+
+// 描画ツールの設定
+const drawnItems = new L.FeatureGroup(); // 描画されたアイテムを管理するための新しいレイヤーグループを作成
+map.addLayer(drawnItems); // 描画したアイテムを管理するグループを地図に追加
+const drawControl = new L.Control.Draw({ // 描画ツールのコントロールを作成
+        draw: {
+        polyline: false, // ポリラインの描画を無効化
+        circle: false,   // 円の描画を無効化
+        rectangle: true, // 四角形の描画を有効化
+        polygon: false,   // 多角形の描画を有効化
+        marker: false    // マーカーの描画を無効化
+    },
+    edit: {
+        featureGroup: drawnItems // 編集対象をdrawnItemsに設定
+    }
+});
+map.addControl(drawControl); // 描画ツールのコントロールを地図に追加
+
+
+// 図形が作成された際の処理
+map.on(L.Draw.Event.CREATED, function (e) {
+    const type = e.layerType,
+        layer = e.layer;
+
+    if (type === 'polygon') {
+        const area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]); // 作成したポリゴンの面積を計算
+        const areaInKm2 = (area / 1000000).toFixed(2); // 面積を平方キロメートルに変換して表示
+        alert("作成したポリゴンの面積: " + area + " 平方メートル");
+    }
+
+    drawnItems.addLayer(layer); // 描画した図形を地図に追加
+});
+
+// フォームが送信された際の処理
+document.getElementById('body-info-form').addEventListener('submit', function(e) {
+    e.preventDefault(); // フォームのデフォルトの送信動作をキャンセル
+    const date = document.getElementById('date').value; // 日付の入力値を取得
+    const weight = document.getElementById('weight').value; // 体重の入力値を取得
+    const waist = document.getElementById('waist').value; // 腹囲の入力値を取得
+
+
+    if (date && weight && waist) {
+        localStorage.setItem(`${date}_weight`, weight); // 体重をローカルストレージに保存
+        localStorage.setItem(`${date}_waist`, waist); // 腹囲をローカルストレージに保存
+        alert("身体情報を保存しました。");
+
+        const goals = generateDailyGoals(weight, waist); // 日々の目標を生成
+        document.getElementById('display-goals').textContent = `今日の目標歩数: ${goals.steps}`; // 目標歩数を表示
+
+        // 今日のデータを更新
+        if (date === new Date().toISOString().split('T')[0]) {
+            document.getElementById('display-weight').textContent = `体重: ${weight} kg`; // 今日の体重を表示
+            document.getElementById('display-waist').textContent = `腹囲: ${waist} cm`; // 今日の腹囲を表示
+
+            userPath = loadPath(date); // 過去のデータを再読み込み
+            pathLine.setLatLngs(userPath); // 地図にルートを再描画
+        }
+    }
+});
+
+function savePath(date, path) {
+    localStorage.setItem(`${date}_path`, JSON.stringify(path)); // 指定した日付のパスをローカルストレージに保存
+}
+
+function loadPath(date) {
+    const savedPath = localStorage.getItem(`${date}_path`); // ローカルストレージから指定した日付のパスを取得
+    return savedPath ? JSON.parse(savedPath) : []; // パスが存在する場合はパースして返す、存在しない場合は空の配列を返す
+}
+
+// 選択した日のデータを読み込み
+document.getElementById('load-data').addEventListener('click', function() {
+    const selectedDate = document.getElementById('select-date').value; // 選択された日付を取得
+    if (selectedDate) {
+        const savedWeight = localStorage.getItem(`${selectedDate}_weight`); // ローカルストレージから体重を取得
+        const savedWaist = localStorage.getItem(`${selectedDate}_waist`); // ローカルストレージから腹囲を取得
+        const savedPath = loadPath(selectedDate); // ローカルストレージからパスを取得
+
+        if (savedWeight && savedWaist && savedPath.length > 0) {
+            document.getElementById('display-weight').textContent = `体重: ${savedWeight} kg`; // 体重を表示
+            document.getElementById('display-waist').textContent = `腹囲: ${savedWaist} cm`; // 腹囲を表示
+
+            pathLine.setLatLngs(savedPath); // パスを地図上に設定
+            map.fitBounds(pathLine.getBounds()); // パスの範囲に地図をフィットさせる
+
+            document.getElementById('resume-container').style.display = 'block'; // 再開コンテナを表示
+            stopLocationTracking(); // 位置追跡を停止
+        } else {
+            alert("選択した日のデータが見つかりません。"); // データが見つからない場合のアラート
+        }
+    }
+});
+
+        // 過去のデータ閲覧終了
+        document.getElementById('resume-tracking').addEventListener('click', function() {
+    endViewingPastData(); // 過去データの表示を終了して現在のデータに戻る
+});
+
+function endViewingPastData() {
+    const today = new Date().toISOString().split('T')[0]; // 今日の日付を取得
+    const savedWeight = localStorage.getItem(`${today}_weight`); // 今日の体重データをローカルストレージから取得
+    const savedWaist = localStorage.getItem(`${today}_waist`); // 今日の腹囲データをローカルストレージから取得
+
+    if (savedWeight && savedWaist) {
+        document.getElementById('display-weight').textContent = `体重: ${savedWeight} kg`; // 今日の体重を表示
+        document.getElementById('display-waist').textContent = `腹囲: ${savedWaist} cm`; // 今日の腹囲を表示
+    } else {
+        document.getElementById('display-weight').textContent = '体重: - kg'; // データがない場合のデフォルト表示
+        document.getElementById('display-waist').textContent = '腹囲: - cm'; // データがない場合のデフォルト表示
+    }
+    
+    document.getElementById('resume-container').style.display = 'none'; // 再開コンテナを非表示
+    startLocationTracking(); // 位置追跡を再開
+}
+
+
+        // 歩数カウント用センサー設定
+    let ax = 0, ay = 0, az = 0;
+    let lastAx = 0, lastAy = 0, lastAz = 0;
+    let stepCount = 0;
+    let lastStepTime = 0;
+    const threshold = 1.5; // 加速度の変動の閾値
+    const minInterval = 500; // 最小間隔（ミリ秒）
+    
+    let reminderSteps = 50; // デフォルトのリマインダー歩数
+    let nextReminderSteps = reminderSteps; // 次のリマインダーの歩数
+
+    const msg = document.getElementById("msg");
+    const stepsDisplay = document.getElementById("steps");
+
+    // センサーの初期化
+    function initializeSensor() {
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            DeviceMotionEvent.requestPermission()
+                .then(permissionState => {
+                    if (permissionState === 'granted') {
+                        startMotionDetection();
+                        msg.innerHTML = "センサーが有効になりました。歩数をカウントします。";
+                    } else {
+                        msg.innerHTML = "センサーへのアクセスが拒否されました。";
+                    }
+                })
+                .catch(error => {
+                    msg.innerHTML = "センサーのアクセス許可エラー: " + error;
+                });
+        } else {
+            msg.innerHTML = "このブラウザはDeviceMotionEvent.requestPermissionをサポートしていません。";
+        }
+    }
+
+    // リマインダー設定
+    document.getElementById('setReminder').addEventListener('click', function() {
+        reminderSteps = parseInt(document.getElementById('reminderSteps').value, 10);
+        nextReminderSteps = reminderSteps; // 次のリマインダーを設定
+        console.log(`リマインダーが ${reminderSteps} 歩ごとに設定されました。`);
+    });
+
+    // 歩数カウント開始 
+    function startMotionDetection() {
+        window.addEventListener("devicemotion", (event) => {
+            let ax = event.accelerationIncludingGravity.x; // X軸の加速度を取得
+            let ay = event.accelerationIncludingGravity.y; // Y軸の加速度を取得
+            let az = event.accelerationIncludingGravity.z; // Z軸の加速度を取得
+
+            let deltaX = Math.abs(ax - lastAx); // X軸の前回との変化量を計算
+            let deltaY = Math.abs(ay - lastAy); // Y軸の前回との変化量を計算
+            let deltaZ = Math.abs(az - lastAz); // Z軸の前回との変化量を計算
+
+            if (deltaX > threshold || deltaY > threshold || deltaZ > threshold) {
+                let now = Date.now(); // 現在の時間を取得
+                if (now - lastStepTime > minInterval) { // 最後のステップからの時間が最小間隔を超えているかを確認
+                    stepCount++; // 歩数を増加
+                    stepsDisplay.innerHTML = "歩数: " + stepCount; // 歩数を表示
+                    lastStepTime = now; // 最後のステップ時間を更新
+
+                    // リマインダーのチェック
+                    if (stepCount >= nextReminderSteps) {
+                        showReminder();
+                        nextReminderSteps += reminderSteps; // 次の目標歩数を設定
+                    }
+                }
+            }
+
+            lastAx = ax; // 現在のX軸加速度を保存
+            lastAy = ay; // 現在のY軸加速度を保存
+            lastAz = az; // 現在のZ軸加速度を保存
+        });
+    }
+
+    // リマインダーを表示する関数
+    function showReminder() {
+        const message = document.getElementById('message');
+        message.style.display = 'block'; // リマインダーメッセージを表示
+    }
+
+    // リマインダーを非表示にするボタン
+    document.getElementById('stopReminder').addEventListener('click', function() {
+        document.getElementById('message').style.display = 'none';
+    });
+
+    // センサーを初期化する関数を呼び出す
+
+msg.addEventListener("click", initializeSensor); // "msg"要素がクリックされたときにセンサーを初期化する関数を呼び出す
+
+// 既存の関数の後に追加
+function existingFunction() {
+    // 既存の処理
+}
+
+ // 運動を記録する関数
+        function recordExercise() {
+            const squats = document.getElementById("squats").value;
+            const lunges = document.getElementById("lunges").value;
+            const exerciseHistory = document.getElementById("exercise-history");
+
+            // 運動履歴を生成
+            const date = new Date().toLocaleDateString();
+            const record = `日付: ${date}, スクワット: ${squats}回, ランジ: ${lunges}回`;
+            
+            // 過去の記録を追加
+            exerciseHistory.innerHTML += `<div>${record}</div>`;
+            
+            // 入力値をリセット
+            document.getElementById("exercise-form").reset();
+        }
+ 
+        function recordExercise() {
+    const today = new Date().toISOString().split('T')[0]; // 今日の日付を取得
+    const squats = parseInt(document.getElementById('squats').value) || 0;
+    const lunges = parseInt(document.getElementById('lunges').value) || 0;
+
+    // 過去の記録を取得
+    let exerciseData = JSON.parse(localStorage.getItem(`${today}_exercise`)) || { squats: 0, lunges: 0 };
+
+    // 現在の記録に加算
+    exerciseData.squats += squats;
+    exerciseData.lunges += lunges;
+
+    // ローカルストレージに保存
+    localStorage.setItem(`${today}_exercise`, JSON.stringify(exerciseData));
+
+    // 入力フィールドをリセット
+    document.getElementById('squats').value = 0;
+    document.getElementById('lunges').value = 0;
+
+    // 運動履歴を更新
+    updateExerciseHistory();
+}
+
+function updateExerciseHistory() {
+    const exerciseHistoryDiv = document.getElementById('exercise-history');
+    exerciseHistoryDiv.innerHTML = ''; // 以前の履歴をクリア
+
+    const today = new Date().toISOString().split('T')[0];
+    const storedData = JSON.parse(localStorage.getItem(`${today}_exercise`)) || { squats: 0, lunges: 0 };
+
+    // 今日の運動記録を表示
+    const historyEntry = document.createElement('div');
+    historyEntry.textContent = `日付: ${today} - スクワット: ${storedData.squats}, ランジ: ${storedData.lunges}`;
+    exerciseHistoryDiv.appendChild(historyEntry);
+}
+
+document.getElementById('load-data').addEventListener('click', function() {
+    const selectedDate = document.getElementById('select-date').value;
+    const storedData = JSON.parse(localStorage.getItem(`${selectedDate}_exercise`)) || { squats: 0, lunges: 0 };
+
+    const exerciseHistoryDiv = document.getElementById('exercise-history');
+    exerciseHistoryDiv.innerHTML = ''; // 以前の履歴をクリア
+
+    const historyEntry = document.createElement('div');
+    historyEntry.textContent = `日付: ${selectedDate} - スクワット: ${storedData.squats}, ランジ: ${storedData.lunges}`;
+    exerciseHistoryDiv.appendChild(historyEntry);
+});
+
+/// ユーザーが描くべき図形の設定（四角形のみ）
+let targetShape = 'square'; // 四角形に限定
+
+// 判定結果を表示するエリア
+let targetShapeText = document.createElement('div');
+targetShapeText.innerHTML = `<h3>描く図形: 四角形</h3>`;
+document.body.insertBefore(targetShapeText, document.getElementById("map"));
+
+
+
+    </script>
+</body>
+</html>
